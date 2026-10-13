@@ -149,6 +149,19 @@ python -m aiso.label --n 50
 - การจับชื่อเป็นแบบ substring ชื่อสั้นมาก ๆ อาจนับเกิน ใช้ `label.py` วัดเสมอ
 - API ไม่มีพิกัดผู้ใช้ จึงต้องใส่ทำเลในคำถาม (ระบุเป็นข้อจำกัดในรายงาน)
 
+## Tests
+
+ชุดทดสอบใช้ `unittest` ของ stdlib (ไม่ต้องติดตั้งอะไรเพิ่ม ไม่ยิง network ไม่ต้องมี `GEMINI_API_KEY`)
+
+```bash
+python -m unittest discover -s tests
+```
+
+ครอบคลุม `stats.py` (Wilson CI, Jaccard, required_n, variance), กติกาหยุดของ adaptive (`should_stop`),
+การจับชื่อ/citation (`entities.py`), mentioned/cited/recommended + การตัด source chip (`extract.py`)
+และ end-to-end บน mock provider (fixed vs adaptive) ในโฟลเดอร์ชั่วคราว ไม่แตะ `data/` หรือ `reports/`
+GitHub Actions รันชุดนี้บน Python 3.10 และ 3.12 (`.github/workflows/tests.yml`)
+
 ## โครงสร้างโค้ด (อ่านตามลำดับนี้)
 
 | ไฟล์ | ทำอะไร |
