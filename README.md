@@ -115,6 +115,14 @@ python -m aiso.manual --provider gemini
 
 วางคำตอบ → พิมพ์ `END` บรรทัดใหม่ (ข้ามได้ด้วย `SKIP`) ลิงก์ที่ขึ้นต้นด้วย http จะถูกเก็บเป็น citation
 
+เก็บ web engine อื่นด้วยมือ (Gemini / ChatGPT / Perplexity / AI Mode) ให้ทำตาม **`docs/run-sheet.md`** และสร้าง checklist ด้วย
+
+```bash
+python -m aiso.runsheet --repeats 3 --out reports/runsheet        # checklist .md + .csv
+python -m aiso.manual --provider chatgpt --repeat 0 --queries 1-5 --who TN --note "Chrome incognito, logged-out, Bangkok"
+python -m unittest discover -s tests                              # ทดสอบ parser (ไม่ใช้ network)
+```
+
 ดูรายงาน **ข้อ 2** ถ้าตรงกันน้อย ไม่ได้แปลว่าโปรเจกต์ล้ม มันคือ finding ที่ต้องเขียนเป็นข้อจำกัด (และน่าสนใจด้วย)
 
 ## Day 3 — Why Not Me?
