@@ -4,3 +4,4 @@ data/
 reports/
 __pycache__/
 .venv/
+.claude/
