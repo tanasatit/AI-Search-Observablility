@@ -1,0 +1,6 @@
+config.json
+.env
+data/
+reports/
+__pycache__/
+.venv/

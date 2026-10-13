@@ -1,0 +1,26 @@
+{
+  "_comment": "แก้ไฟล์นี้เป็นธุรกิจจริง ชื่อร้านด้านล่างเป็นตัวอย่างสมมติ. aliases = ชื่อเรียกอื่น ๆ (ไทย/อังกฤษ/สะกดผิดที่พบบ่อย). domains = เว็บ/เพจของร้าน ใช้ตรวจ citation",
+  "target": {
+    "name": "บ้านสวนคาเฟ่",
+    "aliases": ["Baan Suan Cafe", "Baan Suan Coffee", "ร้านบ้านสวน"],
+    "domains": ["baansuancafe.com"]
+  },
+  "competitors": [
+    {"name": "Bean Lab", "aliases": ["บีนแล็บ", "Bean Lab Asok"], "domains": ["beanlab.co"]},
+    {"name": "Work & Brew", "aliases": ["เวิร์คแอนด์บริว", "Work and Brew"], "domains": ["workandbrew.com"]},
+    {"name": "นั่งชิลล์คอฟฟี่", "aliases": ["Nang Chill Coffee"], "domains": []},
+    {"name": "Slow Drip Studio", "aliases": ["สโลว์ดริป"], "domains": ["slowdrip.studio"]}
+  ],
+  "queries": [
+    "ร้านกาแฟนั่งทำงานแถวอโศก",
+    "ร้านกาแฟย่านอโศกที่มีปลั๊กเยอะ",
+    "ร้านกาแฟเปิดดึกแถวอโศก กรุงเทพ",
+    "คาเฟ่เงียบ ๆ เหมาะประชุมงานย่านอโศก",
+    "ร้านกาแฟ wifi แรง ใกล้ BTS อโศก",
+    "คาเฟ่ทำงานได้ทั้งวันแถวสุขุมวิท 21",
+    "ร้านกาแฟ specialty แถวอโศก",
+    "ร้านกาแฟราคาไม่แพงนั่งได้นาน ย่านอโศก",
+    "best cafe to work near Asok BTS Bangkok",
+    "quiet coffee shop for meetings Asok Bangkok"
+  ]
+}

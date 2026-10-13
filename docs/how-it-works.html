@@ -1,0 +1,425 @@
+<title>AI Search Observability</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans+Thai:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a lab-instrument readout. One example answer travels a six-station track and changes shape at each station. */
+:root {
+  --bg: #f3f5f7; --panel: #ffffff; --ink: #0f1a24; --ink-2: #4a5866; --line: #d9dfe5; --soft: #e8edf1;
+  --signal: #1f6fd1; --signal-soft: #dbe8f8; --amber: #9a5c00; --amber-soft: #f6e8d2; --ok: #18794e; --ok-soft: #dcefe5;
+  --on-signal: #ffffff;
+  --display: "Bricolage Grotesque", "IBM Plex Sans Thai", system-ui, sans-serif;
+  --body: "IBM Plex Sans Thai", -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1318; --panel: #141c23; --ink: #eef3f7; --ink-2: #a2b0bc; --line: #26313b; --soft: #1b252e;
+    --signal: #5ea0f0; --signal-soft: #17304d; --amber: #e7a43f; --amber-soft: #3a2a12; --ok: #4cc58c; --ok-soft: #133426;
+    --on-signal: #0d1318;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1318; --panel: #141c23; --ink: #eef3f7; --ink-2: #a2b0bc; --line: #26313b; --soft: #1b252e;
+  --signal: #5ea0f0; --signal-soft: #17304d; --amber: #e7a43f; --amber-soft: #3a2a12; --ok: #4cc58c; --ok-soft: #133426;
+  --on-signal: #0d1318;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.6 var(--body); margin: 0; }
+.wrap { max-width: 1080px; margin: 0 auto; padding-inline: 20px; padding-block: 40px 72px; display: grid; gap: 56px; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-spacing: -0.015em; }
+h1 { font-size: clamp(32px, 6vw, 54px); line-height: 1.05; }
+h2 { font-size: clamp(22px, 3.2vw, 30px); line-height: 1.15; }
+h3 { font-size: 18px; }
+p { margin: 0; max-width: 66ch; }
+.eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--signal); }
+.lede { font-size: 18px; color: var(--ink-2); }
+.stack { display: grid; gap: 14px; }
+.mono { font-family: var(--mono); }
+.muted { color: var(--ink-2); }
+
+.hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 32px; align-items: center; }
+.ask { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 12px; }
+.ask .q { font-weight: 600; }
+.ask .meta { font: 12px var(--mono); color: var(--ink-2); display: flex; justify-content: space-between; gap: 8px; }
+.shops { display: flex; flex-wrap: wrap; gap: 8px; min-height: 76px; align-content: flex-start; }
+.shop { font-size: 14px; border: 1px solid var(--line); border-radius: 999px; padding: 3px 12px; background: var(--soft); }
+.shop.tgt { background: var(--signal-soft); border-color: var(--signal); font-weight: 600; }
+.shop.in { animation: pop .4s ease-out both; }
+@keyframes pop { from { opacity: .15; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.tally { font: 13px var(--mono); color: var(--ink-2); }
+.tally b { color: var(--signal); }
+.note { font-size: 12.5px; color: var(--ink-2); }
+
+.track { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; }
+.st { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; text-align: left; font: inherit;
+  color: inherit; cursor: pointer; display: grid; gap: 4px; align-content: start; transition: border-color .3s, background .3s, transform .3s; }
+.st:focus-visible, .btn:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.st .n { font: 500 12px var(--mono); color: var(--ink-2); }
+.st .t { font-family: var(--display); font-weight: 700; font-size: 16px; line-height: 1.2; }
+.st .s { font-size: 12.5px; color: var(--ink-2); line-height: 1.35; }
+.st.on { border-color: var(--signal); background: var(--signal-soft); transform: translateY(-3px); }
+.st.done .n { color: var(--signal); }
+.rail { height: 4px; background: var(--soft); border-radius: 4px; overflow: hidden; }
+.rail i { display: block; height: 100%; width: 0; background: var(--signal); transition: width .6s ease; }
+.controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.btn { font: 500 14px var(--body); border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 8px;
+  padding: 6px 14px; cursor: pointer; }
+.btn.primary { background: var(--signal); border-color: var(--signal); color: var(--on-signal); }
+.stage { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 20px; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 14px; padding: 22px; min-height: 320px; }
+.stage .explain { display: grid; gap: 10px; align-content: start; }
+.who { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag { font: 500 11.5px var(--mono); padding: 2px 8px; border-radius: 6px; background: var(--soft); color: var(--ink-2); }
+.tag.run { background: var(--ok-soft); color: var(--ok); }
+.tag.build { background: var(--amber-soft); color: var(--amber); }
+.view { background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; overflow-x: auto;
+  font: 13px/1.55 var(--mono); }
+.view.swap { animation: swap .45s ease-out; }
+@keyframes swap { from { opacity: .2; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+.k { color: var(--signal); } .s2 { color: var(--ok); } .c { color: var(--ink-2); }
+.engines { display: grid; gap: 8px; font-family: var(--body); font-size: 14px; }
+.eng { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 8px 10px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.pill { font: 500 11.5px var(--mono); padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.pill.auto { background: var(--ok-soft); color: var(--ok); }
+.pill.man { background: var(--amber-soft); color: var(--amber); }
+.pill.api { background: var(--signal-soft); color: var(--signal); }
+.browser { font-family: var(--body); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }
+.browser .bar { font: 11.5px var(--mono); padding: 6px 10px; background: var(--soft); color: var(--ink-2); }
+.browser .box { margin: 12px; border: 1px solid var(--line); border-radius: 20px; padding: 8px 14px; min-height: 40px; }
+.browser .box::after { content: "▍"; color: var(--signal); animation: blink 1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+.browser .ans { margin: 0 12px 12px; font-size: 13px; color: var(--ink-2); min-height: 40px; }
+.steps { margin: 0; padding-left: 18px; font-family: var(--body); font-size: 13px; color: var(--ink-2); display: grid; gap: 2px; }
+.flags { width: 100%; border-collapse: collapse; font-family: var(--body); font-size: 13.5px; }
+.flags th, .flags td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; }
+.flags th { font: 500 11.5px var(--mono); color: var(--ink-2); }
+.flags td.y { color: var(--ok); font-weight: 600; } .flags td.x { color: var(--ink-2); }
+.ci { display: grid; gap: 8px; font-family: var(--body); }
+.ci svg, .civ svg { width: 100%; height: auto; display: block; }
+
+.adapt { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.lab { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 12px; min-width: 0; align-content: start; }
+.dots { display: flex; gap: 6px; flex-wrap: wrap; min-height: 22px; }
+.dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--signal); animation: pop .3s ease-out both; }
+.dot.hit { background: var(--signal); }
+.verdict { font: 500 13px var(--mono); color: var(--ink-2); }
+.verdict.stop { color: var(--ok); }
+.saving { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+.big { font: 700 40px/1 var(--display); color: var(--signal); font-variant-numeric: tabular-nums; }
+
+.lanes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.lane { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 12px; align-content: start; }
+.lane ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.lane li { display: grid; gap: 2px; }
+.lane li b { font-weight: 600; }
+.lane li span { font-size: 14px; color: var(--ink-2); }
+
+.when { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.when div { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 4px; align-content: start; }
+.when .now { border-color: var(--signal); background: var(--signal-soft); }
+.when b { font: 500 12px var(--mono); color: var(--ink-2); }
+.when span { font-size: 14px; }
+footer { font-size: 13px; color: var(--ink-2); border-top: 1px solid var(--line); padding-top: 18px; }
+
+@media (max-width: 900px) { .track { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 820px) {
+  .hero, .stage, .adapt, .lanes { grid-template-columns: minmax(0, 1fr); }
+  .when { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 480px) { .track { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+
+<div class="wrap">
+  <section class="hero">
+    <div class="stack">
+      <span class="eyebrow">Senior project · Software and Knowledge Engineering · 2026</span>
+      <h1>AI Search Observability</h1>
+      <p class="lede">Ask an AI the same shopping question ten times and it names a different set of shops. We measure how often each Thai retailer is named, recommended and cited by Gemini, ChatGPT, Perplexity and Google AI Mode, and we put a confidence interval on every number.</p>
+      <p class="muted" style="font-size:14px">Case study: game consoles (PS5, Switch 2) sold online in Thailand. Target shop: Tinzshop, tracked against about 10 competitors.</p>
+    </div>
+    <div class="ask" aria-live="polite">
+      <div class="meta"><span>one engine · fresh session each time</span><span id="rep">answer 1 / 10</span></div>
+      <div class="q">“ซื้อ PS5 ร้านไหนดี ของแท้ ราคาถูก”</div>
+      <div class="shops" id="shops"></div>
+      <div class="tally" id="tally"></div>
+      <div class="note">Illustration with simulated answers.</div>
+    </div>
+  </section>
+
+  <section class="stack" aria-labelledby="p-h">
+    <span class="eyebrow">The pipeline</span>
+    <h2 id="p-h">From one question to a number you can defend</h2>
+    <p class="muted">Follow one answer from the question to the report. Click any station or let it play.</p>
+    <div class="track" id="track" role="tablist" aria-label="Pipeline stations"></div>
+    <div class="rail"><i id="rail"></i></div>
+    <div class="controls">
+      <button class="btn primary" id="play">Pause</button>
+      <button class="btn" id="prev">Back</button>
+      <button class="btn" id="next">Next</button>
+    </div>
+    <div class="stage">
+      <div class="explain">
+        <h3 id="sTitle"></h3>
+        <p id="sText" class="muted"></p>
+        <div class="who" id="sWho"></div>
+      </div>
+      <div class="view" id="sView" role="tabpanel"></div>
+    </div>
+  </section>
+
+  <section class="stack" aria-labelledby="a-h">
+    <span class="eyebrow">Objective 3 · adaptive sampling</span>
+    <h2 id="a-h">Stop asking once the answer is clear</h2>
+    <p class="muted">Each dot is one repeat of the same query; a filled dot means the shop was named. After every repeat the 95% Wilson interval is recomputed. Once the whole interval sits above or below 50%, more repeats cannot change the decision, so the collector stops. Same rule as <span class="mono">collect.py</span>: at least 3, at most 10 repeats. Draws here are simulated.</p>
+    <div class="adapt">
+      <div class="lab" id="labA"></div>
+      <div class="lab" id="labB"></div>
+    </div>
+    <div class="saving">
+      <button class="btn primary" id="rerun">Run again with new draws</button>
+      <span class="big" id="saved">–</span>
+      <span class="muted" style="max-width:44ch;font-size:14px">fewer queries than always asking 10 times, in this run. The proposal target is at least 25%, measured on real collection.</span>
+    </div>
+  </section>
+
+  <section class="stack" aria-labelledby="t-h">
+    <span class="eyebrow">Tools</span>
+    <h2 id="t-h">What runs in the pipeline, and what we build it with</h2>
+    <div class="lanes">
+      <div class="lane">
+        <span class="tag run" style="justify-self:start">runs in the pipeline</span>
+        <ul>
+          <li><b>Python 3 standard library</b><span>Collector, extractor, statistics and reports, with no other dependencies.</span></li>
+          <li><b>Playwright</b><span>Drives a real Chromium browser to ask the free web engines the way a person types. Stops at any login wall or CAPTCHA and never bypasses it.</span></li>
+          <li><b>Gemini API, free tier</b><span>Baseline with web search off: what the model knows without searching.</span></li>
+          <li><b>Manual paste tool</b><span>For engines we cannot automate, a person asks in the app and pastes the answer, so the data has the same shape.</span></li>
+          <li><b>JSONL + HTML dashboard</b><span>Append-only raw answers, so the analysis can be re-run without asking again.</span></li>
+        </ul>
+      </div>
+      <div class="lane">
+        <span class="tag build" style="justify-self:start">used to build it</span>
+        <ul>
+          <li><b>Claude Code, an AI coding agent</b><span>Pair-programs the adapters, statistics and dashboard; runs the code and fixes what fails.</span></li>
+          <li><b>Playwright MCP</b><span>Lets the agent open and inspect an engine's live page, so it can write the adapter and repair it when the layout changes.</span></li>
+          <li><b>Cloud sessions</b><span>Independent tasks such as the dashboard, the tests and this page run as parallel cloud agents against the GitHub repo.</span></li>
+          <li><b>GitHub</b><span>Holds code, tests and the query set. Raw data and API keys stay out of the repo.</span></li>
+        </ul>
+      </div>
+    </div>
+    <p class="muted" style="font-size:14px">The AI tools help write the software. They do not produce the measurements: every number in the report comes from saved raw answers and fixed rules we can test.</p>
+  </section>
+
+  <section class="stack" aria-labelledby="w-h">
+    <span class="eyebrow">Status</span>
+    <h2 id="w-h">Where the project is</h2>
+    <div class="when">
+      <div class="now"><b>Oct 2026 · now</b><span>MVP: Perplexity adapter, Gemini baseline, extractor, statistics, dashboard</span></div>
+      <div><b>Dec 2026</b><span>Terms-of-service review, final 20 queries, remaining adapters</span></div>
+      <div><b>Jan 2027</b><span>Fixed and adaptive collection on all four engines</span></div>
+      <div><b>Feb 2027</b><span>Label 200 answers and measure extractor F1</span></div>
+      <div><b>Mar 2027</b><span>Engine comparison, case-study report for the shop, demo</span></div>
+    </div>
+  </section>
+
+  <footer>We measure and never optimise: the tool does not try to change rankings. Collection runs at low volume from fresh logged-out sessions, and an engine that blocks automation is collected by hand.</footer>
+</div>
+
+<script>
+(() => {
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+  const P = (x) => Math.round(x * 100) + "%";
+  function wilson(k, n, z = 1.96) {
+    if (!n) return [0, 0, 1];
+    const p = k / n, d = 1 + z * z / n, c = (p + z * z / (2 * n)) / d;
+    const h = (z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n))) / d;
+    return [p, Math.max(0, c - h), Math.min(1, c + h)];
+  }
+  const ciSvg = (k, n, label) => {
+    const [p, lo, hi] = wilson(k, n), x = (v) => 24 + v * 352;
+    const tx = Math.min(Math.max(x(p), 70), 330);
+    return `<svg viewBox="0 0 400 68" role="img" aria-label="${esc(label)}: ${P(p)}, 95% interval ${P(lo)} to ${P(hi)}">
+      <line x1="24" x2="376" y1="36" y2="36" stroke="var(--line)" stroke-width="2"/>
+      <line x1="${x(.5)}" x2="${x(.5)}" y1="22" y2="50" stroke="var(--ink-2)" stroke-dasharray="3 3"/>
+      <line x1="${x(lo)}" x2="${x(hi)}" y1="36" y2="36" stroke="var(--signal)" stroke-width="4" stroke-linecap="round"/>
+      <circle cx="${x(p)}" cy="36" r="7" fill="var(--signal)" stroke="var(--panel)" stroke-width="2"/>
+      <text x="24" y="64" font-size="11" fill="var(--ink-2)" text-anchor="middle" font-family="IBM Plex Mono, monospace">0%</text>
+      <text x="${x(.5)}" y="64" font-size="11" fill="var(--ink-2)" text-anchor="middle" font-family="IBM Plex Mono, monospace">50%</text>
+      <text x="376" y="64" font-size="11" fill="var(--ink-2)" text-anchor="middle" font-family="IBM Plex Mono, monospace">100%</text>
+      <text x="${tx}" y="14" font-size="12" fill="var(--ink)" text-anchor="middle" font-family="IBM Plex Mono, monospace">${k}/${n} = ${P(p)}  [${P(lo)}–${P(hi)}]</text>
+    </svg>`;
+  };
+
+  // hero: same question, different shops (simulated)
+  const POOL = [["Power Buy", .9], ["Banana IT", .8], ["Shopee Mall", .85], ["Lazada", .6], ["Tinzshop", .3, 1],
+    ["Art & Gun", .45], ["JIB", .35], ["Sony Store", .55], ["Advice IT", .2]];
+  let seed = 7;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  let rep = 0, hits = 0;
+  function nextAnswer() {
+    rep = rep % 10 + 1;
+    if (rep === 1) hits = 0;
+    const picks = POOL.filter(([, p]) => rnd() < p).slice(0, 5);
+    if (picks.some((x) => x[2])) hits++;
+    document.getElementById("rep").textContent = `answer ${rep} / 10`;
+    document.getElementById("shops").innerHTML = picks.map(([n, , t], i) =>
+      `<span class="shop ${t ? "tgt" : ""} in" style="animation-delay:${i * 70}ms">${esc(n)}</span>`).join("");
+    const [, lo, hi] = wilson(hits, rep);
+    document.getElementById("tally").innerHTML = `Tinzshop named in <b>${hits}/${rep}</b> answers · 95% CI ${P(lo)}–${P(hi)}`;
+  }
+  nextAnswer();
+  if (!reduce) setInterval(nextAnswer, 1800);
+
+  // pipeline
+  const RAW = `{
+  <span class="k">"provider"</span>: <span class="s2">"perplexity_web"</span>,
+  <span class="k">"session"</span>: <span class="s2">"2026-10-13"</span>,
+  <span class="k">"query_id"</span>: 0, <span class="k">"repeat"</span>: 2,
+  <span class="k">"query"</span>: <span class="s2">"ซื้อ PS5 ร้านไหนดี ของแท้ ราคาถูก"</span>,
+  <span class="k">"answer"</span>: <span class="s2">"… เลือก Power Buy …"</span>,
+  <span class="k">"citations"</span>: [
+    {<span class="k">"url"</span>: <span class="s2">"https://www.powerbuy.co.th/…"</span>},
+    {<span class="k">"url"</span>: <span class="s2">"https://www.artandgungame.com/ps5"</span>},
+    {<span class="k">"url"</span>: <span class="s2">"https://shopee.co.th/list/ps5"</span>}
+  ]
+}
+<span class="c">// one line per answer, written the moment it arrives</span>`;
+  const STAGES = [
+    { t: "Queries", s: "real shopping questions", who: ["config.json"],
+      text: "About 20 questions customers really ask, in Thai and English, written with the shop. Each is asked 5–10 times on every engine, spread over different days.",
+      view: () => `<div style="font-family:var(--body);display:grid;gap:6px">
+        <div style="font-size:15px;font-weight:600">“ซื้อ PS5 ร้านไหนดี ของแท้ ราคาถูก”</div>
+        <div class="c">“ร้านขาย Nintendo Switch 2 ออนไลน์ ที่น่าเชื่อถือ”</div>
+        <div class="c">“where to buy PS5 online in Thailand”</div><div class="c">… about 17 more</div>
+        <div class="mono" style="margin-top:10px">20 queries × 5–10 repeats × 4 engines ≈ <b class="k">400–800 answers</b></div></div>` },
+    { t: "Engines", s: "4 web engines + baseline", who: ["providers.py", "web.py"],
+      text: "One adapter per engine, all returning the same record shape. Every query uses a fresh logged-out session, so answers are not personalised.",
+      view: () => `<div class="engines">
+        <div class="eng"><span>Perplexity (web)</span><span class="pill auto">automated</span></div>
+        <div class="eng"><span>Gemini (web)</span><span class="pill man">manual for now</span></div>
+        <div class="eng"><span>ChatGPT (web)</span><span class="pill man">manual for now</span></div>
+        <div class="eng"><span>Google AI Mode</span><span class="pill man">manual for now</span></div>
+        <div class="eng"><span>Gemini API, no search</span><span class="pill api">baseline</span></div></div>` },
+    { t: "Collector", s: "a browser that asks like a person", who: ["collect.py", "Playwright"],
+      text: "Opens a real browser, types the question, waits until the answer stops streaming, and keeps only the answer text and its source links. A rate limiter and a request cap keep volume low. A login wall or CAPTCHA stops the run.",
+      view: () => `<div style="display:grid;gap:10px"><div class="browser"><div class="bar">perplexity.ai · new private session</div>
+        <div class="box" id="typing"></div><div class="ans" id="streamed"></div></div>
+        <ol class="steps"><li>open fresh session</li><li>type the query</li><li>wait until text stops changing</li><li>save answer + links</li></ol></div>`,
+      after: typeDemo },
+    { t: "Raw answers", s: "append-only JSONL", who: ["data/raw/*.jsonl"],
+      text: "Every answer is saved as soon as it arrives, with citations and session details. Nothing is overwritten, so a crash loses nothing and an improved extractor can be re-run on old answers.",
+      view: () => `<pre style="margin:0;white-space:pre-wrap">${RAW}</pre>` },
+    { t: "Extractor", s: "named · recommended · cited", who: ["extract.py", "entities.py"],
+      text: "Finds each tracked shop by its name and Thai/English aliases, checks the citation domains, and looks for recommendation words next to the name. Checked against 200 answers labelled by hand (target F1 ≥ 0.90 for mentions).",
+      view: () => `<table class="flags"><thead><tr><th>shop</th><th>named</th><th>recommended</th><th>cited</th></tr></thead><tbody>
+        <tr><td>Power Buy</td><td class="y">yes</td><td class="y">yes</td><td class="y">yes</td></tr>
+        <tr><td>Art &amp; Gun</td><td class="y">yes</td><td class="x">no</td><td class="y">yes</td></tr>
+        <tr><td>Banana IT</td><td class="y">yes</td><td class="x">no</td><td class="x">no</td></tr>
+        <tr><td><b>Tinzshop</b></td><td class="x">no</td><td class="x">no</td><td class="x">no</td></tr></tbody></table>` },
+    { t: "Statistics", s: "rates with 95% intervals", who: ["stats.py"],
+      text: "Flags from all repeats become a rate with a Wilson 95% interval, which stays correct for small samples and for rates near 0% or 100%. Jaccard similarity shows how much answers change between repeats.",
+      view: () => `<div class="ci"><div>Power Buy</div>${ciSvg(9, 10, "Power Buy")}<div>Tinzshop</div>${ciSvg(3, 10, "Tinzshop")}
+        <div class="c">Example numbers. The width of the interval is what a single manual check hides.</div></div>` },
+    { t: "Dashboard", s: "compare engines, find gaps", who: ["dashboard.py", "report.py"],
+      text: "Compares every shop across engines on the same queries, lists the pages each engine cites, and flags shop names we do not track yet. The shop sees where it is missing and which sources the engines rely on.",
+      view: () => `<div style="font-family:var(--body);display:grid;gap:8px">
+        <div class="c mono">reports/dashboard.html</div>
+        <div class="eng"><span>Rates per shop × engine</span><span class="pill api">with 95% CI</span></div>
+        <div class="eng"><span>Shop, query by query</span><span class="pill api">k / n</span></div>
+        <div class="eng"><span>Domains each engine cites</span><span class="pill api">top 8</span></div>
+        <div class="eng"><span>Untracked names found</span><span class="pill man">for review</span></div></div>` },
+  ];
+  const track = document.getElementById("track");
+  track.innerHTML = STAGES.map((st, i) => `<button class="st" role="tab" id="st${i}" aria-controls="sView">
+    <span class="n">${String(i + 1).padStart(2, "0")}</span><span class="t">${st.t}</span><span class="s">${st.s}</span></button>`).join("");
+  let cur = 0, playing = !reduce, timer, typeTimer;
+  function show(i) {
+    cur = (i + STAGES.length) % STAGES.length;
+    const st = STAGES[cur];
+    STAGES.forEach((_, j) => {
+      const b = document.getElementById("st" + j);
+      b.classList.toggle("on", j === cur);
+      b.classList.toggle("done", j < cur);
+      b.setAttribute("aria-selected", String(j === cur));
+    });
+    document.getElementById("rail").style.width = ((cur + 1) / STAGES.length) * 100 + "%";
+    document.getElementById("sTitle").textContent = `${cur + 1}. ${st.t}`;
+    document.getElementById("sText").textContent = st.text;
+    document.getElementById("sWho").innerHTML = st.who.map((w) => `<span class="tag run">${esc(w)}</span>`).join("");
+    const v = document.getElementById("sView");
+    v.classList.remove("swap"); void v.offsetWidth; v.classList.add("swap");
+    v.innerHTML = st.view();
+    clearInterval(typeTimer);
+    if (st.after) st.after();
+  }
+  function typeDemo() {
+    const q = "ซื้อ PS5 ร้านไหนดี ของแท้ ราคาถูก", a = "Power Buy · Banana IT · Shopee Mall · Art & Gun …   6 sources";
+    const box = document.getElementById("typing"), ans = document.getElementById("streamed");
+    if (reduce) { box.textContent = q; ans.textContent = a; return; }
+    let i = 0;
+    typeTimer = setInterval(() => {
+      if (i <= q.length) box.textContent = q.slice(0, i);
+      else if (i - q.length <= a.length) ans.textContent = a.slice(0, i - q.length);
+      else clearInterval(typeTimer);
+      i++;
+    }, 45);
+  }
+  function schedule() { clearTimeout(timer); if (playing) timer = setTimeout(() => { show(cur + 1); schedule(); }, 5600); }
+  const playBtn = document.getElementById("play");
+  const setPlay = () => (playBtn.textContent = playing ? "Pause" : "Play");
+  setPlay();
+  playBtn.onclick = () => { playing = !playing; setPlay(); schedule(); };
+  document.getElementById("next").onclick = () => { show(cur + 1); schedule(); };
+  document.getElementById("prev").onclick = () => { show(cur - 1); schedule(); };
+  STAGES.forEach((_, j) => (document.getElementById("st" + j).onclick = () => { show(j); schedule(); }));
+  show(0); schedule();
+
+  // adaptive sampling (simulated draws, same stopping rule as collect.py)
+  const MIN = 3, MAX = 10;
+  let s2 = 11;
+  const r2 = () => ((s2 = (s2 * 48271) % 2147483647) / 2147483647);
+  let runToken = 0;
+  function runLab(el, title, p, token) {
+    const draws = [];
+    let stopped = false;
+    for (let n = 1; n <= MAX; n++) {
+      draws.push(r2() < p ? 1 : 0);
+      const k = draws.reduce((a, b) => a + b, 0), [, lo, hi] = wilson(k, n);
+      if (n >= MIN && (lo > .5 || hi < .5)) { stopped = true; break; }
+    }
+    el.innerHTML = `<h3>${esc(title)}</h3><div class="muted" style="font-size:14px">true rate in this simulation: ${P(p)}</div>
+      <div class="dots"></div><div class="civ"></div><div class="verdict"></div>`;
+    const dots = el.querySelector(".dots"), civ = el.querySelector(".civ"), ver = el.querySelector(".verdict");
+    const render = (n) => {
+      dots.innerHTML = draws.slice(0, n).map((d) => `<span class="dot ${d ? "hit" : ""}"></span>`).join("");
+      const k = draws.slice(0, n).reduce((a, b) => a + b, 0);
+      civ.innerHTML = ciSvg(k, n, title);
+      if (n < draws.length) { ver.className = "verdict"; ver.textContent = `${n} asked · interval still crosses 50%, keep asking`; }
+      else {
+        ver.className = "verdict" + (stopped ? " stop" : "");
+        ver.textContent = stopped ? `stopped after ${n} · decision is clear` : `hit the maximum of ${MAX} · borderline, report the wide interval`;
+      }
+    };
+    if (reduce) { render(draws.length); return draws.length; }
+    let n = 0;
+    const step = () => { if (token !== runToken) return; n++; render(n); if (n < draws.length) setTimeout(step, 560); };
+    step();
+    return draws.length;
+  }
+  function rerun() {
+    const token = ++runToken;
+    const a = runLab(document.getElementById("labA"), "Switch 2 query: shop usually named", .92, token);
+    const b = runLab(document.getElementById("labB"), "PS5 query: shop sometimes named", .45, token);
+    document.getElementById("saved").textContent = P(1 - (a + b) / (2 * MAX));
+  }
+  document.getElementById("rerun").onclick = rerun;
+  rerun();
+})();
+</script>
