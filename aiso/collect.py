@@ -164,7 +164,9 @@ def main():
             target_n = args.repeats if args.mode == "fixed" else args.max_r
             while n < target_n:
                 watch = indicators if args.focus == "all" else {entities[0].name: indicators[entities[0].name]}
-                if args.mode == "adaptive" and should_stop(watch, n, args.min_r, args.max_r, args.margin,
+                # Decide on successful observations only: a failed request is not a "not mentioned".
+                ok_n = len(indicators[entities[0].name])
+                if args.mode == "adaptive" and should_stop(watch, ok_n, args.min_r, args.max_r, args.margin,
                                                          args.stop_rule, args.threshold):
                     break
                 res, err = ask_with_retry(provider, q, limiter, budget)
