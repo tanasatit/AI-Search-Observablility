@@ -141,6 +141,22 @@ python -m aiso.label --n 50
 
 ถ้า `recommended` แม่นต่ำกว่า ~80% ให้ปรับคำใน `REC_MARKERS` ใน `aiso/extract.py`
 
+### Benchmark ตัวแกะข้อความ (ไม่ต้องใช้ API key)
+
+วัดว่า `extract.py` นับ mentioned / cited / recommended ถูกแค่ไหน กับชุดคำตอบสมมติ 209 ข้อที่ label มือไว้แล้ว (ไทย/อังกฤษ/ผสม) ใน `tests/gold/cases.jsonl`
+
+```bash
+python -m aiso.benchmark                 # precision / recall / F1 ของทั้ง 3 ตัวนับ
+python -m aiso.benchmark --errors        # + ลิสต์เคสที่ตอบผิด
+python -m aiso.benchmark --split holdout # เฉพาะชุด holdout (เขียนทีหลัง ไม่ได้ใช้จูนครั้งแรก)
+```
+
+แก้กฎใน `extract.py` / `entities.py` แล้วรันซ้ำ ดูว่าตัวเลขขึ้นโดยไม่ทำให้เคสอื่นพัง (unit test ล็อกขั้นต่ำไว้ที่ mentioned/cited ≥ 95%, recommended ≥ 90%)
+
+**เพิ่มเคสใหม่** (เช่นเจอคำตอบจริงที่นับผิด): เติม 1 บรรทัดท้าย `cases.jsonl` — `answer`, `citations` (url + title) และ `gold` (ชื่อร้านที่ mentioned / cited / recommended) **label ก่อนรัน benchmark** ตามนิยามใน `tests/gold/README.md` แล้วค่อยแก้กฎและเพิ่ม test ใน `tests/test_extract_rules.py`
+
+ตัวเลขนี้วัดบนคำตอบที่เขียนเอง ไม่ใช่คำตอบจริงของ AI — ยังต้องใช้ `aiso.label` (ข้อ 5 ของรายงาน) ตรวจกับข้อมูลจริงอีกรอบก่อนใส่ตัวเลขลงรายงานฉบับสุดท้าย
+
 ---
 
 ## ค่าใช้จ่ายและเพดาน
@@ -154,7 +170,8 @@ python -m aiso.label --n 50
 
 - URL ใน citation ของ Gemini มักเป็นลิงก์ redirect ของ Google ส่วน **title** มักเป็นชื่อโดเมน ระบบจึงตรวจทั้งคู่
 - รูปแบบ response ของ API อาจเปลี่ยนในอนาคต ถ้า smoke test ได้คำตอบว่างเปล่า แก้ที่ `GeminiProvider._parse` ใน `aiso/providers.py`
-- การจับชื่อเป็นแบบ substring ชื่อสั้นมาก ๆ อาจนับเกิน ใช้ `label.py` วัดเสมอ
+- ชื่อละติน (Bean Lab, Work & Brew) จับแบบทั้งคำ ไม่ติดกลางคำอื่นแล้ว แต่ **ชื่อไทยไม่มีช่องว่างคั่นคำ** จึงยังเป็น substring (เช่น alias `ร้านบ้านสวน` จะติด `ร้านบ้านสวนผัก`) และสะกดแปลก ๆ ที่ไม่ได้ใส่ใน `aliases` จะหลุด ใช้ `label.py` วัดเสมอ
+- `recommended` เป็นกฎคำ+ประโยค: ประชด, ถามแล้วตอบข้ามประโยค, "ไปที่ X แทน" ที่ไม่มีคำแนะนำ ยังพลาดได้ (ดู `tests/gold/README.md`)
 - API ไม่มีพิกัดผู้ใช้ จึงต้องใส่ทำเลในคำถาม (ระบุเป็นข้อจำกัดในรายงาน)
 
 ## Tests
@@ -166,7 +183,7 @@ python -m unittest discover -s tests
 ```
 
 ครอบคลุม `stats.py` (Wilson CI, Jaccard, required_n, variance), กติกาหยุดของ adaptive (`should_stop`),
-การจับชื่อ/citation (`entities.py`), mentioned/cited/recommended + การตัด source chip (`extract.py`)
+การจับชื่อ/citation (`entities.py`), mentioned/cited/recommended + การตัด source chip (`extract.py`), เคส regression ของกฎแกะข้อความ และ benchmark บน gold (`test_extract_rules.py`, `test_benchmark.py`)
 และ end-to-end บน mock provider (fixed vs adaptive) ในโฟลเดอร์ชั่วคราว ไม่แตะ `data/` หรือ `reports/`
 GitHub Actions รันชุดนี้บน Python 3.10 และ 3.12 (`.github/workflows/tests.yml`)
 
@@ -177,6 +194,7 @@ GitHub Actions รันชุดนี้บน Python 3.10 และ 3.12 (`.g
 | `aiso/stats.py` | สถิติทั้งหมด (Wilson CI, Jaccard, จำนวนรอบที่ต้องใช้, variance) — อาจารย์จะถามตรงนี้ |
 | `aiso/entities.py` | จับชื่อร้านไทย/อังกฤษ และหาชื่อคู่แข่งที่ไม่รู้จัก |
 | `aiso/extract.py` | ตัดสินว่า mentioned / cited / recommended |
+| `aiso/benchmark.py` | วัด precision/recall ของ `extract.py` กับ gold ใน `tests/gold/` |
 | `aiso/providers.py` | ต่อ Gemini (และ mock) — เพิ่มเจ้าอื่นได้ด้วยการเขียน class ใหม่ |
 | `aiso/collect.py` | ยิง query, rate limit, retry, เพดาน, adaptive sampling |
 | `aiso/report.py` | สร้างรายงาน Day 1/2/3 |
